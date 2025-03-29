@@ -1,36 +1,26 @@
-const jwt = require("jsonwebtoken");
-const User = require("../models/userModel"); // Adjust path based on your project structure
+import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
-// ✅ Protect routes (Only authenticated users)
-const protect = async (req, res, next) => {
-  let token;
+const authMiddleware = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
 
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    try {
-      token = req.headers.authorization.split(" ")[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await User.findById(decoded.id).select("-password");
-
-      if (!req.user) {
-        return res.status(401).json({ message: "User not found" });
-      }
-
-      next();
-    } catch (error) {
-      res.status(401).json({ message: "Not authorized, invalid token" });
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized - No token provided" });
     }
-  } else {
-    res.status(401).json({ message: "Not authorized, no token" });
-  }
-};
 
-// ✅ Admin check (Only admins can access certain routes)
-const admin = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.id).select("-password");
+
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized - User not found" });
+    }
+
     next();
-  } else {
-    res.status(403).json({ message: "Not authorized as admin" });
+  } catch (error) {
+    console.error("Auth Error:", error);
+    res.status(401).json({ message: "Unauthorized - Invalid token" });
   }
 };
 
-module.exports = { protect, admin };
+export default authMiddleware;

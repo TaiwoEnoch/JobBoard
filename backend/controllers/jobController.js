@@ -1,4 +1,4 @@
-const Job = require("../models/jobModel");
+import Job from "../models/Job.js";
 
 // ✅ Get all jobs (Public)
 const getJobs = async (req, res) => {
@@ -6,7 +6,8 @@ const getJobs = async (req, res) => {
     const jobs = await Job.find();
     res.json(jobs);
   } catch (error) {
-    res.status(500).json({ message: "Server Error" });
+    console.error("Get Jobs Error:", error); // Added logging
+    res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
@@ -19,28 +20,40 @@ const getJobById = async (req, res) => {
     }
     res.json(job);
   } catch (error) {
-    res.status(500).json({ message: "Server Error" });
+    console.error("Get Job By ID Error:", error); // Added logging
+    res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
 // ✅ Add a new job (Admin Only)
 const addJob = async (req, res) => {
-  const { title, company, location, description } = req.body;
+  if (!req.user) { // Added user check
+    return res.status(401).json({ message: "Unauthorized" });
+  }
 
-  if (!title || !company || !location || !description) {
+  const { title, company, location, description, salary } = req.body;
+
+  if (!title || !company || !location || !description || !salary) {
     return res.status(400).json({ message: "All fields are required" });
   }
 
+  console.log("Add Job Request Body:", req.body); // Added logging
+
   try {
-    const job = await Job.create({ title, company, location, description });
+    const job = await Job.create({ title, company, location, description, salary });
     res.status(201).json(job);
   } catch (error) {
-    res.status(500).json({ message: "Server Error" });
+    console.error("Add Job Error:", error); // Added logging
+    res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
 // ✅ Update job (Admin Only)
 const updateJob = async (req, res) => {
+  if (!req.user) { // Added user check
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
   try {
     let job = await Job.findById(req.params.id);
     if (!job) {
@@ -50,12 +63,17 @@ const updateJob = async (req, res) => {
     job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(job);
   } catch (error) {
-    res.status(500).json({ message: "Server Error" });
+    console.error("Update Job Error:", error); // Added logging
+    res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
 // ✅ Delete job (Admin Only)
 const deleteJob = async (req, res) => {
+  if (!req.user) { // Added user check
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
   try {
     const job = await Job.findById(req.params.id);
     if (!job) {
@@ -65,8 +83,9 @@ const deleteJob = async (req, res) => {
     await job.deleteOne();
     res.json({ message: "Job removed successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server Error" });
+    console.error("Delete Job Error:", error); // Added logging
+    res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
-module.exports = { getJobs, getJobById, addJob, updateJob, deleteJob };
+export { getJobs, getJobById, addJob, updateJob, deleteJob };

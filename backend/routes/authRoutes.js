@@ -1,81 +1,73 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
 // Register User
 router.post('/register', async (req, res) => {
-  console.log('Received request body:', req.body);
+  console.log('Register request body:', req.body);
   try {
-    let { name, email, password } = req.body;
+    const { name, email, password } = req.body;
 
-    // Trim input values
-    name = name?.trim();
-    email = email?.trim();
-    password = password?.trim();
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Please fill in all fields' });
-    }
-
-    // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // ✅ Remove manual hashing — Just pass raw password
-    const newUser = new User({ name, email, password }); 
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    await newUser.save(); // The password will be hashed automatically
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+    });
 
+    console.log('New user to save:', newUser);
+
+    await newUser.save();
+
+    console.log('User saved successfully');
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
-    console.error('❌ Server Error:', error);
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    console.error('Register error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
 // Login User
 router.post('/login', async (req, res) => {
+  console.log('Login request body:', req.body);
   try {
-    let { email, password } = req.body;
-
-    // Trim input values
-    email = email?.trim();
-    password = password?.trim();
-
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Please fill in all fields' });
-    }
+    const { email, password } = req.body;
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials - User not found' });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    console.log("Entered Password:", password); // Debugging
-    console.log("Stored Hashed Password:", user.password); // Debugging
+    console.log('User found:', user);
+    console.log('Hashed password from DB:', user.password);
+    console.log('Plain text password from request:', password);
 
-    // Compare hashed password
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log('Password match:', isMatch); // Debugging
+
+    console.log('Password match:', isMatch);
 
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials - Password mismatch' });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Generate JWT Token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '1hr',
+      expiresIn: '1h',
     });
 
     res.status(200).json({ message: 'Login successful', token });
   } catch (error) {
-    console.error('❌ Server Error:', error);
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
